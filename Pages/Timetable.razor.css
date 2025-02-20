@@ -1,0 +1,23 @@
+﻿.timetable-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+    .timetable-table th,
+    .timetable-table td {
+        border: 1px solid black;
+        padding: 8px;
+        text-align: left;
+    }
+
+/* Every odd row (human count: 1st, 3rd, …) gets a light blue background.
+   Since CSS isolation scopes the styles to this component,
+   you can safely use the .timetable-row class. */
+.timetable-row.odd {
+    background-color: lightblue;
+}
+
+/* Highlight selected rows */
+.timetable-row.selected {
+    outline: 2px solid #007bff;
+}
