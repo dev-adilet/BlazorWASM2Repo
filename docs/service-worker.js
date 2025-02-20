@@ -54,3 +54,54 @@ async function onFetch(event) {
 
     return cachedResponse || fetch(event.request);
 }
+
+const CACHE_NAME = 'my-app-cache-v1';
+const FILES_TO_CACHE = [
+    '/',                   // The root page
+    '/index.html',         // Main HTML file
+    '/css/app.css',        // Your CSS
+    '/js/app.js',          // Your JavaScript (if any)
+    // Add other assets (images, fonts, etc.) here...
+];
+
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                console.log('Pre-caching offline resources');
+                return cache.addAll(FILES_TO_CACHE);
+            })
+    );
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(keyList => {
+            return Promise.all(
+                keyList.map(key => {
+                    if (key !== CACHE_NAME) {
+                        console.log('Removing old cache:', key);
+                        return caches.delete(key);
+                    }
+                })
+            );
+        })
+    );
+    self.clients.claim();
+});
+
+self.addEventListener('fetch', event => {
+    // Only handle GET requests.
+    if (event.request.method !== 'GET') {
+        return;
+    }
+    event.respondWith(
+        caches.match(event.request)
+            .then(cachedResponse => {
+                // Return the cached response if found, otherwise perform a network fetch.
+                return cachedResponse || fetch(event.request);
+            })
+    );
+});
+
