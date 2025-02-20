@@ -1,12 +1,12 @@
 self.assetsManifest = {
-  "version": "3NTjEXlC",
+  "version": "GhtZPvJE",
   "assets": [
     {
       "hash": "sha256-jShCikLLk3RKW82MBMXP4CXx6r1tcYH40oR4rBp3E4k=",
       "url": "BlazorWASM2.styles.css"
     },
     {
-      "hash": "sha256-6mUNKS4BTDX2ZNr1B714U8B3A+9CIU+ALWvm4yuVbP4=",
+      "hash": "sha256-p8OUUu0DrBBtafmYCIcweMOvY8JL+X0NYYUfAQbwS6k=",
       "url": "_framework/BlazorWASM2.wasm"
     },
     {
@@ -134,7 +134,7 @@ self.assetsManifest = {
       "url": "_framework/System.Text.RegularExpressions.wasm"
     },
     {
-      "hash": "sha256-5gHhIS+bs4MYaOenQVUKPZ/9YUQs9ejpyR30DZtrgf8=",
+      "hash": "sha256-ap5Wi0rgtRT9Vy8hR+QM1dwZbJ6o9tR5aWFAT2fNp30=",
       "url": "_framework/blazor.boot.json"
     },
     {
@@ -182,6 +182,10 @@ self.assetsManifest = {
       "url": "css/bootstrap/bootstrap.min.css.map"
     },
     {
+      "hash": "sha256-qqbaS981QeJ/NztnteTmuU/F/6VeQqn/P8ypF2rJRbU=",
+      "url": "downloadFile.js"
+    },
+    {
       "hash": "sha256-4mWsDy3aHl36ZbGt8zByK7Pvd4kRUoNgTYzRnwmPHwg=",
       "url": "favicon.png"
     },
@@ -194,7 +198,7 @@ self.assetsManifest = {
       "url": "icon-512.png"
     },
     {
-      "hash": "sha256-+V9OPHg1AiM1Igqq49gqDb8Ef3bgx8+2aeus1wcQzJI=",
+      "hash": "sha256-yvm+wUeAhQg14VgkDzksJ1VGG582MVHU3pbJWBuKGco=",
       "url": "index.html"
     },
     {
