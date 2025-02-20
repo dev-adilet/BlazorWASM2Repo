@@ -160,3 +160,27 @@ main[b-ba213lnu1p] {
         overflow-y: auto;
     }
 }
+/* /Pages/Timetable.razor.rz.scp.css */
+.timetable-table[b-uuao3t0yon] {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+    .timetable-table th[b-uuao3t0yon],
+    .timetable-table td[b-uuao3t0yon] {
+        border: 1px solid black;
+        padding: 8px;
+        text-align: left;
+    }
+
+/* Every odd row (human count: 1st, 3rd, …) gets a light blue background.
+   Since CSS isolation scopes the styles to this component,
+   you can safely use the .timetable-row class. */
+.timetable-row.odd[b-uuao3t0yon] {
+    background-color: lightblue;
+}
+
+/* Highlight selected rows */
+.timetable-row.selected[b-uuao3t0yon] {
+    outline: 2px solid #007bff;
+}
