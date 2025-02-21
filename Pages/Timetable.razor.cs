@@ -1,12 +1,12 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using System;
 
 namespace BlazorWASM2.Pages
 {
@@ -14,23 +14,29 @@ namespace BlazorWASM2.Pages
     {
         protected List<TimetableEntry> timetable = new();
 
-        // For the split dialog
+        // Split dialog state
         private bool showSplitDialog;
         private TimetableEntry? rowToSplit;
         private string splitTime = "";
         private string splitError = "";
+
+        // Merge dialog state
+        private bool showMergeDialog;
+        private string mergeTaskName = "";
+        private string mergeError = "";
 
         [Inject]
         private IJSRuntime JSRuntime { get; set; } = default!;
 
         protected override async Task OnInitializedAsync()
         {
+            // Sample default row with valid HH:mm format
             if (!timetable.Any())
             {
                 timetable.Add(new TimetableEntry
                 {
-                    StartTime = "5:45",
-                    EndTime = "6:25",
+                    StartTime = "05:45:00",
+                    EndTime = "06:25:00",
                     Task = "Wake up & freshen up",
                     IsEditing = false,
                     IsSelected = false
@@ -88,12 +94,14 @@ namespace BlazorWASM2.Pages
 
         protected void AddNewRow()
         {
+            // For a new row, the StartTime defaults to the previous row's EndTime
             string newStartTime = "";
             if (timetable.Count > 0)
             {
                 var lastEntry = timetable[timetable.Count - 1];
                 newStartTime = lastEntry.EndTime;
             }
+
             var newEntry = new TimetableEntry
             {
                 StartTime = newStartTime,
@@ -105,20 +113,50 @@ namespace BlazorWASM2.Pages
             timetable.Add(newEntry);
         }
 
-        protected void MergeSelectedRows()
+        // Open the merge dialog instead of merging immediately.
+        protected void OpenMergeDialog()
         {
+            // Ensure at least two selected rows
+            if (timetable.Count(x => x.IsSelected) < 2)
+                return;
+
+            mergeTaskName = "";
+            mergeError = "";
+            showMergeDialog = true;
+        }
+
+        protected void CancelMerge()
+        {
+            showMergeDialog = false;
+            mergeTaskName = "";
+            mergeError = "";
+        }
+
+        protected void ConfirmMerge()
+        {
+            if (string.IsNullOrWhiteSpace(mergeTaskName))
+            {
+                mergeError = "Please enter a task name.";
+                return;
+            }
+
             var selectedIndices = timetable
                 .Select((entry, index) => new { entry, index })
                 .Where(x => x.entry.IsSelected)
                 .Select(x => x.index)
                 .ToList();
 
-            if (selectedIndices.Count == 0)
+            if (selectedIndices.Count < 2)
+            {
+                mergeError = "Please select at least two rows.";
                 return;
+            }
 
             selectedIndices.Sort();
+            // Must be contiguous
             if (selectedIndices.Last() - selectedIndices.First() != selectedIndices.Count - 1)
             {
+                mergeError = "Selected rows must be contiguous.";
                 return;
             }
 
@@ -129,9 +167,7 @@ namespace BlazorWASM2.Pages
             {
                 StartTime = timetable[firstIndex].StartTime,
                 EndTime = timetable[lastIndex].EndTime,
-                Task = string.Join(" ", timetable
-                          .GetRange(firstIndex, lastIndex - firstIndex + 1)
-                          .Select(r => r.Task)),
+                Task = mergeTaskName,
                 IsEditing = false,
                 IsSelected = false
             };
@@ -143,9 +179,14 @@ namespace BlazorWASM2.Pages
             {
                 timetable[firstIndex + 1].StartTime = mergedEntry.EndTime;
             }
+
+            // Reset
+            showMergeDialog = false;
+            mergeTaskName = "";
+            mergeError = "";
         }
 
-        // -- SPLIT ROW DIALOG APPROACH --
+        // Split row dialog
         protected void OpenSplitDialog(TimetableEntry entry)
         {
             rowToSplit = entry;
@@ -162,6 +203,12 @@ namespace BlazorWASM2.Pages
             splitError = "";
         }
 
+        // Handle <input type="time" ...> for splitting
+        private void OnSplitTimeChanged(ChangeEventArgs e)
+        {
+            splitTime = e.Value?.ToString() ?? "";
+        }
+
         protected void ConfirmSplitTime()
         {
             if (rowToSplit == null)
@@ -170,37 +217,33 @@ namespace BlazorWASM2.Pages
                 return;
             }
 
-            // Validate that the user actually entered something
             if (string.IsNullOrWhiteSpace(splitTime))
             {
                 splitError = "Please enter a split time.";
                 return;
             }
 
-            // Parse StartTime / EndTime of the row
+            // Validate the row's StartTime and EndTime
             if (!TimeSpan.TryParse(rowToSplit.StartTime, out var startTs) ||
                 !TimeSpan.TryParse(rowToSplit.EndTime, out var endTs))
             {
-                // If the row's times are un-parseable, show error or abort
                 splitError = "Row start/end time is invalid. Cannot split.";
                 return;
             }
 
-            // Parse the user's input
+            // Validate the user's time
             if (!TimeSpan.TryParse(splitTime, out var userTs))
             {
                 splitError = "Invalid time format. Use HH:mm (e.g. 06:45).";
                 return;
             }
 
-            // Check that userTs is strictly between startTs and endTs
             if (userTs <= startTs || userTs >= endTs)
             {
                 splitError = $"Split time must be between {rowToSplit.StartTime} and {rowToSplit.EndTime}.";
                 return;
             }
 
-            // Proceed with the actual split
             int idx = timetable.IndexOf(rowToSplit);
             if (idx < 0)
             {
@@ -235,7 +278,6 @@ namespace BlazorWASM2.Pages
                 timetable[idx + 2].StartTime = row2.EndTime;
             }
 
-            // Reset dialog
             showSplitDialog = false;
             rowToSplit = null;
             splitTime = "";

@@ -9,15 +9,35 @@
         <div class="modal-container">
             <h4>Split Row</h4>
             <p>Enter split time between @rowToSplit?.StartTime and @rowToSplit?.EndTime</p>
-            <input type="text" class="form-control mb-2" @bind="splitTime" />
+            <!-- Manually bind to 'splitTime' by handling onchange -->
+            <input type="time" class="form-control mb-2" value="@splitTime" @onchange="OnSplitTimeChanged" />
             @if (!string.IsNullOrWhiteSpace(splitError))
             {
                 <div class="text-danger">@splitError</div>
             }
-
             <div class="mt-2">
                 <button class="btn btn-primary me-2" @onclick="ConfirmSplitTime">Confirm</button>
                 <button class="btn btn-secondary" @onclick="CancelSplit">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Merge Rows Dialog -->
+@if (showMergeDialog)
+{
+    <div class="modal-backdrop">
+        <div class="modal-container">
+            <h4>Merge Rows</h4>
+            <p>Please enter a task name:</p>
+            <input type="text" class="form-control mb-2" @bind="mergeTaskName" />
+            @if (!string.IsNullOrWhiteSpace(mergeError))
+            {
+                <div class="text-danger">@mergeError</div>
+            }
+            <div class="mt-2">
+                <button class="btn btn-primary me-2" @onclick="ConfirmMerge">Confirm</button>
+                <button class="btn btn-secondary" @onclick="CancelMerge">Cancel</button>
             </div>
         </div>
     </div>
@@ -39,7 +59,7 @@
         @for (int i = 0; i < timetable.Count; i++)
         {
             var entry = timetable[i];
-            string rowClass = "timetable-row";
+            var rowClass = "timetable-row";
             if (i % 2 == 0)
             {
                 rowClass += " odd";
@@ -86,15 +106,24 @@
                     <td>
                         @if (i == 0)
                         {
-                            <input type="text" class="form-control" @bind="entry.StartTime" />
+                            @* For the first row, user can edit StartTime *@
+                            <input type="time" class="form-control"
+                                   value="@entry.StartTime"
+                                   @onchange="(e) => entry.StartTime = e.Value?.ToString() ?? string.Empty" />
                         }
                         else
                         {
-                            <input type="text" class="form-control" value="@entry.StartTime" disabled />
+                            @* For subsequent rows, keep StartTime disabled *@
+                            <input type="time" class="form-control"
+                                   value="@entry.StartTime"
+                                   disabled />
                         }
                     </td>
                     <td>
-                        <input type="text" class="form-control" @bind="entry.EndTime" />
+                        @* EndTime is editable *@
+                        <input type="time" class="form-control"
+                               value="@entry.EndTime"
+                               @onchange="(e) => entry.EndTime = e.Value?.ToString() ?? string.Empty" />
                     </td>
                     <td>
                         <input type="text" class="form-control" @bind="entry.Task" />
@@ -124,14 +153,15 @@
     <button class="btn btn-success me-2" @onclick="AddNewRow">Add New Row</button>
     @if (timetable.Count(x => x.IsSelected) > 1)
     {
-        <button class="btn btn-warning me-2" @onclick="MergeSelectedRows">Merge Selected</button>
+        <button class="btn btn-warning me-2" @onclick="OpenMergeDialog">Merge Selected</button>
     }
     <button class="btn btn-info me-2" @onclick="ExportTimetableAsync">Export Timetable</button>
     <InputFile OnChange="HandleFileSelected" accept=".json" />
     <button class="btn btn-info" @onclick="PrintAsPDF">Print to PDF</button>
 </div>
 
+
 @code {
-    // We show the Actions column if at least one row is either editing or selected.
+    // We show the Actions column if at least one row is editing or selected.
     bool ShowActionsColumn => timetable.Any(x => x.IsEditing || x.IsSelected);
 }
