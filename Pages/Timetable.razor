@@ -2,20 +2,64 @@
 
 <h3>Timetable</h3>
 
+<!-- Split Row Dialog -->
+@if (showSplitDialog)
+{
+    <div class="modal-backdrop">
+        <div class="modal-container">
+            <h4>Split Row</h4>
+            <p>Enter split time between @rowToSplit?.StartTime and @rowToSplit?.EndTime</p>
+            <!-- Manually bind to 'splitTime' by handling onchange -->
+            <input type="time" class="form-control mb-2" value="@splitTime" @onchange="OnSplitTimeChanged" />
+            @if (!string.IsNullOrWhiteSpace(splitError))
+            {
+                <div class="text-danger">@splitError</div>
+            }
+            <div class="mt-2">
+                <button class="btn btn-primary me-2" @onclick="ConfirmSplitTime">Confirm</button>
+                <button class="btn btn-secondary" @onclick="CancelSplit">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Merge Rows Dialog -->
+@if (showMergeDialog)
+{
+    <div class="modal-backdrop">
+        <div class="modal-container">
+            <h4>Merge Rows</h4>
+            <p>Please enter a task name:</p>
+            <input type="text" class="form-control mb-2" @bind="mergeTaskName" />
+            @if (!string.IsNullOrWhiteSpace(mergeError))
+            {
+                <div class="text-danger">@mergeError</div>
+            }
+            <div class="mt-2">
+                <button class="btn btn-primary me-2" @onclick="ConfirmMerge">Confirm</button>
+                <button class="btn btn-secondary" @onclick="CancelMerge">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
 <table id="myTimetable" class="table timetable-table">
     <thead>
         <tr>
             <th>Start Time</th>
             <th>End Time</th>
-            <th>Task</th>
-            <th class="actions-col">Actions</th>
+            <th>Task Name</th>
+            @if (ShowActionsColumn)
+            {
+                <th class="actions-col">Actions</th>
+            }
         </tr>
     </thead>
     <tbody>
         @for (int i = 0; i < timetable.Count; i++)
         {
             var entry = timetable[i];
-            string rowClass = "timetable-row";
+            var rowClass = "timetable-row";
             if (i % 2 == 0)
             {
                 rowClass += " odd";
@@ -31,18 +75,29 @@
                     <td>@entry.StartTime</td>
                     <td>@entry.EndTime</td>
                     <td>@entry.Task</td>
-                    <td class="actions-col">
-                        <button class="btn btn-primary"
-                                @onclick:stopPropagation="true"
-                                @onclick="() => Edit(entry)">
-                            Edit
-                        </button>
-                        <button class="btn btn-info ms-1"
-                                @onclick:stopPropagation="true"
-                                @onclick="() => SplitRow(entry)">
-                            Split
-                        </button>
-                    </td>
+                    @if (ShowActionsColumn)
+                    {
+                        <td class="actions-col">
+                            @if (entry.IsSelected)
+                            {
+                                <button class="btn btn-primary"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="() => Edit(entry)">
+                                    Edit
+                                </button>
+                                <button class="btn btn-info ms-1"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="() => OpenSplitDialog(entry)">
+                                    Split
+                                </button>
+                                <button class="btn btn-danger ms-1"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="() => DeleteRow(entry)">
+                                    Delete
+                                </button>
+                            }
+                        </td>
+                    }
                 </tr>
             }
             else
@@ -51,41 +106,62 @@
                     <td>
                         @if (i == 0)
                         {
-                            <input type="text" class="form-control" @bind="entry.StartTime" />
+                            @* For the first row, user can edit StartTime *@
+                            <input type="time" class="form-control"
+                                   value="@entry.StartTime"
+                                   @onchange="(e) => entry.StartTime = e.Value?.ToString() ?? string.Empty" />
                         }
                         else
                         {
-                            <input type="text" class="form-control" value="@entry.StartTime" disabled />
+                            @* For subsequent rows, keep StartTime disabled *@
+                            <input type="time" class="form-control"
+                                   value="@entry.StartTime"
+                                   disabled />
                         }
                     </td>
                     <td>
-                        <input type="text" class="form-control" @bind="entry.EndTime" />
+                        @* EndTime is editable *@
+                        <input type="time" class="form-control"
+                               value="@entry.EndTime"
+                               @onchange="(e) => entry.EndTime = e.Value?.ToString() ?? string.Empty" />
                     </td>
                     <td>
                         <input type="text" class="form-control" @bind="entry.Task" />
                     </td>
-                    <td class="actions-col">
-                        <button class="btn btn-success me-1"
-                                @onclick:stopPropagation="true"
-                                @onclick="() => Save(entry)">
-                            Save
-                        </button>
-                        <button class="btn btn-secondary"
-                                @onclick:stopPropagation="true"
-                                @onclick="() => Cancel(entry)">
-                            Cancel
-                        </button>
-                    </td>
+                    @if (ShowActionsColumn)
+                    {
+                        <td class="actions-col">
+                            <button class="btn btn-success me-1"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => Save(entry)">
+                                Save
+                            </button>
+                            <button class="btn btn-secondary"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => Cancel(entry)">
+                                Cancel
+                            </button>
+                        </td>
+                    }
                 </tr>
             }
         }
     </tbody>
 </table>
 
-<div class="mt-3">
+<div class="mt-3 no-print">
     <button class="btn btn-success me-2" @onclick="AddNewRow">Add New Row</button>
-    <button class="btn btn-warning" @onclick="MergeSelectedRows">Merge Selected</button>
-    <button class="btn btn-info" @onclick="ExportTimetableAsync">Export Timetable</button>
+    @if (timetable.Count(x => x.IsSelected) > 1)
+    {
+        <button class="btn btn-warning me-2" @onclick="OpenMergeDialog">Merge Selected</button>
+    }
+    <button class="btn btn-info me-2" @onclick="ExportTimetableAsync">Export Timetable</button>
     <InputFile OnChange="HandleFileSelected" accept=".json" />
-    <button @onclick="PrintAsPDF">Print to PDF</button>
+    <button class="btn btn-info" @onclick="PrintAsPDF">Print to PDF</button>
 </div>
+
+
+@code {
+    // We show the Actions column if at least one row is editing or selected.
+    bool ShowActionsColumn => timetable.Any(x => x.IsEditing || x.IsSelected);
+}
