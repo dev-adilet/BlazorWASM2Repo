@@ -173,9 +173,7 @@ main[b-ba213lnu1p] {
         text-align: left;
     }
 
-/* Every odd row (human count: 1st, 3rd, …) gets a light blue background.
-   Since CSS isolation scopes the styles to this component,
-   you can safely use the .timetable-row class. */
+/* Every odd row gets a light blue background */
 .timetable-row.odd[b-uuao3t0yon] {
     background-color: lightblue;
 }
@@ -183,4 +181,36 @@ main[b-ba213lnu1p] {
 /* Highlight selected rows */
 .timetable-row.selected[b-uuao3t0yon] {
     outline: 2px solid #007bff;
+}
+
+/* For printing: Hide the Actions column and non‑table UI */
+@media print {
+    .actions-col[b-uuao3t0yon] {
+        display: none !important;
+    }
+
+    .no-print[b-uuao3t0yon] {
+        display: none !important;
+    }
+}
+
+/* Modal dialog styling */
+.modal-backdrop[b-uuao3t0yon] {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-container[b-uuao3t0yon] {
+    background: #fff;
+    padding: 1rem;
+    border-radius: 4px;
+    width: 300px;
 }
