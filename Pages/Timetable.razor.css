@@ -20,18 +20,34 @@
     outline: 2px solid #007bff;
 }
 
-/* Hide only when printing */
+/* For printing: Hide the Actions column, etc. */
 @media print {
-    /* Hide the Actions column in print */
     .actions-col {
         display: none !important;
     }
 
-    /* Hide any controls or other elements outside the table */
     .no-print {
         display: none !important;
     }
+}
 
-    /* If you have other layout elements (sidebars, navbars), add their classes here:
-       .sidebar, .navbar, .nav-menu, etc. */
+/* Basic modal styles */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999; /* On top of everything */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-container {
+    background: #fff;
+    padding: 1rem;
+    border-radius: 4px;
+    width: 300px;
 }

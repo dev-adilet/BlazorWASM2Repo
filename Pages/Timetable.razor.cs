@@ -6,12 +6,19 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System;
 
 namespace BlazorWASM2.Pages
 {
     public partial class Timetable
     {
         protected List<TimetableEntry> timetable = new();
+
+        // For the split dialog
+        private bool showSplitDialog;
+        private TimetableEntry? rowToSplit;
+        private string splitTime = "";
+        private string splitError = "";
 
         [Inject]
         private IJSRuntime JSRuntime { get; set; } = default!;
@@ -138,23 +145,74 @@ namespace BlazorWASM2.Pages
             }
         }
 
-        protected async Task SplitRow(TimetableEntry entry)
+        // -- SPLIT ROW DIALOG APPROACH --
+        protected void OpenSplitDialog(TimetableEntry entry)
         {
-            var splitTime = await JSRuntime.InvokeAsync<string>(
-                "prompt",
-                $"Enter split time between {entry.StartTime} and {entry.EndTime}"
-            );
+            rowToSplit = entry;
+            splitTime = "";
+            splitError = "";
+            showSplitDialog = true;
+        }
 
-            if (string.IsNullOrWhiteSpace(splitTime))
+        protected void CancelSplit()
+        {
+            showSplitDialog = false;
+            rowToSplit = null;
+            splitTime = "";
+            splitError = "";
+        }
+
+        protected void ConfirmSplitTime()
+        {
+            if (rowToSplit == null)
+            {
+                showSplitDialog = false;
                 return;
+            }
 
-            int idx = timetable.IndexOf(entry);
+            // Validate that the user actually entered something
+            if (string.IsNullOrWhiteSpace(splitTime))
+            {
+                splitError = "Please enter a split time.";
+                return;
+            }
+
+            // Parse StartTime / EndTime of the row
+            if (!TimeSpan.TryParse(rowToSplit.StartTime, out var startTs) ||
+                !TimeSpan.TryParse(rowToSplit.EndTime, out var endTs))
+            {
+                // If the row's times are un-parseable, show error or abort
+                splitError = "Row start/end time is invalid. Cannot split.";
+                return;
+            }
+
+            // Parse the user's input
+            if (!TimeSpan.TryParse(splitTime, out var userTs))
+            {
+                splitError = "Invalid time format. Use HH:mm (e.g. 06:45).";
+                return;
+            }
+
+            // Check that userTs is strictly between startTs and endTs
+            if (userTs <= startTs || userTs >= endTs)
+            {
+                splitError = $"Split time must be between {rowToSplit.StartTime} and {rowToSplit.EndTime}.";
+                return;
+            }
+
+            // Proceed with the actual split
+            int idx = timetable.IndexOf(rowToSplit);
+            if (idx < 0)
+            {
+                showSplitDialog = false;
+                return;
+            }
 
             var row1 = new TimetableEntry
             {
-                StartTime = entry.StartTime,
+                StartTime = rowToSplit.StartTime,
                 EndTime = splitTime,
-                Task = entry.Task,
+                Task = rowToSplit.Task,
                 IsEditing = false,
                 IsSelected = false
             };
@@ -162,8 +220,8 @@ namespace BlazorWASM2.Pages
             var row2 = new TimetableEntry
             {
                 StartTime = splitTime,
-                EndTime = entry.EndTime,
-                Task = entry.Task,
+                EndTime = rowToSplit.EndTime,
+                Task = rowToSplit.Task,
                 IsEditing = false,
                 IsSelected = false
             };
@@ -176,6 +234,12 @@ namespace BlazorWASM2.Pages
             {
                 timetable[idx + 2].StartTime = row2.EndTime;
             }
+
+            // Reset dialog
+            showSplitDialog = false;
+            rowToSplit = null;
+            splitTime = "";
+            splitError = "";
         }
 
         protected async Task ExportTimetableAsync()
@@ -185,7 +249,7 @@ namespace BlazorWASM2.Pages
             {
                 return;
             }
-            if (!fileName.EndsWith(".json", System.StringComparison.OrdinalIgnoreCase))
+            if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
             {
                 fileName += ".json";
             }
@@ -200,8 +264,8 @@ namespace BlazorWASM2.Pages
             using var stream = file.OpenReadStream();
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
-            ms.Seek(0, System.IO.SeekOrigin.Begin);
-            var json = await new System.IO.StreamReader(ms).ReadToEndAsync();
+            ms.Seek(0, SeekOrigin.Begin);
+            var json = await new StreamReader(ms).ReadToEndAsync();
             try
             {
                 var importedTimetable = JsonSerializer.Deserialize<List<TimetableEntry>>(json);
@@ -211,7 +275,7 @@ namespace BlazorWASM2.Pages
                     StateHasChanged();
                 }
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine("Error parsing timetable file: " + ex.Message);
             }
