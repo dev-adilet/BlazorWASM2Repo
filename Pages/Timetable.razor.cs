@@ -2,13 +2,14 @@
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace BlazorWASM2.Pages
 {
-    public partial class Timetable : ComponentBase
+    public partial class Timetable
     {
         protected List<TimetableEntry> timetable = new();
 
@@ -17,7 +18,6 @@ namespace BlazorWASM2.Pages
 
         protected override async Task OnInitializedAsync()
         {
-            // Example: if no rows exist, add a default row
             if (!timetable.Any())
             {
                 timetable.Add(new TimetableEntry
@@ -33,11 +33,9 @@ namespace BlazorWASM2.Pages
 
         private async Task PrintAsPDF()
         {
-            // This calls the browser’s native print dialog
             await JSRuntime.InvokeVoidAsync("window.print");
         }
 
-        // Toggle row selection when the row is clicked (only if not editing).
         protected void ToggleSelection(TimetableEntry entry)
         {
             if (!entry.IsEditing)
@@ -62,7 +60,6 @@ namespace BlazorWASM2.Pages
             entry.IsEditing = false;
             entry.EditingBackup = null;
 
-            // If there's a next row, set its StartTime to this row's EndTime
             int idx = timetable.IndexOf(entry);
             if (idx < timetable.Count - 1)
             {
@@ -113,10 +110,8 @@ namespace BlazorWASM2.Pages
                 return;
 
             selectedIndices.Sort();
-            // Must be contiguous
             if (selectedIndices.Last() - selectedIndices.First() != selectedIndices.Count - 1)
             {
-                // Not contiguous, do nothing or show error
                 return;
             }
 
@@ -134,37 +129,27 @@ namespace BlazorWASM2.Pages
                 IsSelected = false
             };
 
-            // Remove all selected rows
             timetable.RemoveRange(firstIndex, lastIndex - firstIndex + 1);
-
-            // Insert the merged row
             timetable.Insert(firstIndex, mergedEntry);
 
-            // If there's a next row, set its StartTime to the new row's EndTime
             if (firstIndex < timetable.Count - 1)
             {
                 timetable[firstIndex + 1].StartTime = mergedEntry.EndTime;
             }
         }
 
-        // -- SplitRow method with next-row logic --
         protected async Task SplitRow(TimetableEntry entry)
         {
-            // Prompt user for the split time (e.g., "6:45")
             var splitTime = await JSRuntime.InvokeAsync<string>(
                 "prompt",
                 $"Enter split time between {entry.StartTime} and {entry.EndTime}"
             );
 
-            // If user pressed Cancel or didn't enter anything, abort
             if (string.IsNullOrWhiteSpace(splitTime))
                 return;
 
-            // TODO: Optionally validate splitTime is within the range of [StartTime, EndTime]
-
             int idx = timetable.IndexOf(entry);
 
-            // Create two new rows
             var row1 = new TimetableEntry
             {
                 StartTime = entry.StartTime,
@@ -183,55 +168,40 @@ namespace BlazorWASM2.Pages
                 IsSelected = false
             };
 
-            // Remove the original row
             timetable.RemoveAt(idx);
-
-            // Insert the two new rows in place
             timetable.Insert(idx, row1);
             timetable.Insert(idx + 1, row2);
 
-            // If there's a row after row2, update its StartTime to row2's EndTime
             if (idx + 2 < timetable.Count)
             {
                 timetable[idx + 2].StartTime = row2.EndTime;
             }
         }
 
-        // Export the timetable as a downloadable JSON file.
         protected async Task ExportTimetableAsync()
         {
-            // Prompt the user for a file name (default value "timetable")
             var fileName = await JSRuntime.InvokeAsync<string>("prompt", "Enter file name (without extension):", "timetable");
-
-            // If the user cancels or enters an empty name, abort the export.
             if (string.IsNullOrWhiteSpace(fileName))
             {
                 return;
             }
-
-            // Ensure the file name ends with .json
             if (!fileName.EndsWith(".json", System.StringComparison.OrdinalIgnoreCase))
             {
                 fileName += ".json";
             }
 
-            // Serialize your timetable data to JSON
             var json = JsonSerializer.Serialize(timetable);
-
-            // Call your JavaScript function to trigger the download
             await JSRuntime.InvokeVoidAsync("downloadFile", fileName, json);
         }
 
-
-        // Handle file selection to import a timetable.
         protected async Task HandleFileSelected(InputFileChangeEventArgs e)
         {
             var file = e.File;
             using var stream = file.OpenReadStream();
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
-            ms.Seek(0, SeekOrigin.Begin);
-            var json = await new StreamReader(ms).ReadToEndAsync();
+            ms.Seek(0, System.IO.SeekOrigin.Begin);
+            var json = await new System.IO.StreamReader(ms).ReadToEndAsync();
             try
             {
                 var importedTimetable = JsonSerializer.Deserialize<List<TimetableEntry>>(json);
@@ -241,10 +211,23 @@ namespace BlazorWASM2.Pages
                     StateHasChanged();
                 }
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Console.WriteLine("Error parsing timetable file: " + ex.Message);
             }
+        }
+
+        protected void DeleteRow(TimetableEntry entry)
+        {
+            int idx = timetable.IndexOf(entry);
+            if (idx == -1)
+                return;
+
+            if (idx > 0 && idx < timetable.Count - 1)
+            {
+                timetable[idx + 1].StartTime = timetable[idx - 1].EndTime;
+            }
+            timetable.RemoveAt(idx);
         }
 
         public class TimetableEntry
@@ -252,8 +235,8 @@ namespace BlazorWASM2.Pages
             public string StartTime { get; set; } = "";
             public string EndTime { get; set; } = "";
             public string Task { get; set; } = "";
-            public bool IsEditing { get; set; } = false;
-            public bool IsSelected { get; set; } = false;
+            public bool IsEditing { get; set; }
+            public bool IsSelected { get; set; }
             public TimetableEntry? EditingBackup { get; set; }
         }
     }

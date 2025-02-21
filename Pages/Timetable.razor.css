@@ -10,9 +10,7 @@
         text-align: left;
     }
 
-/* Every odd row (human count: 1st, 3rd, …) gets a light blue background.
-   Since CSS isolation scopes the styles to this component,
-   you can safely use the .timetable-row class. */
+/* Every odd row gets a light blue background */
 .timetable-row.odd {
     background-color: lightblue;
 }
@@ -20,4 +18,20 @@
 /* Highlight selected rows */
 .timetable-row.selected {
     outline: 2px solid #007bff;
+}
+
+/* Hide only when printing */
+@media print {
+    /* Hide the Actions column in print */
+    .actions-col {
+        display: none !important;
+    }
+
+    /* Hide any controls or other elements outside the table */
+    .no-print {
+        display: none !important;
+    }
+
+    /* If you have other layout elements (sidebars, navbars), add their classes here:
+       .sidebar, .navbar, .nav-menu, etc. */
 }
