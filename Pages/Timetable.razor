@@ -72,8 +72,8 @@
             if (!entry.IsEditing)
             {
                 <tr class="@rowClass" @onclick="@(() => ToggleSelection(entry))">
-                    <td>@entry.StartTime</td>
-                    <td>@entry.EndTime</td>
+                    <td>@FormatTime(entry.StartTime)</td>
+                    <td>@FormatTime(entry.EndTime)</td>
                     <td>@entry.Task</td>
                     @if (ShowActionsColumn)
                     {

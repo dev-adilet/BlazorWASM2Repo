@@ -336,6 +336,13 @@ namespace BlazorWASM2.Pages
             timetable.RemoveAt(idx);
         }
 
+        public string FormatTime(string time)
+        {
+            if (string.IsNullOrEmpty(time))
+                return "";
+            return time.Substring(0, Math.Min(time.Length, 5));
+        }
+
         public class TimetableEntry
         {
             public string StartTime { get; set; } = "";
