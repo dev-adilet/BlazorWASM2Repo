@@ -12,25 +12,38 @@ namespace BlazorWASM2.Pages
 {
     public partial class Timetable
     {
+        // Main timetable data
         protected List<TimetableEntry> timetable = new();
 
-        // Split dialog state
+        #region Modal State
+
+        // Edit modal state
+        private bool showEditDialog;
+        private TimetableEntry? rowToEdit;
+        private bool isNewRowEdit; // true if editing a newly added row
+        private string editStartTime = "";
+        private string editEndTime = "";
+        private string editTaskName = "";
+        private string editError = "";
+
+        // Split modal state
         private bool showSplitDialog;
         private TimetableEntry? rowToSplit;
         private string splitTime = "";
         private string splitError = "";
 
-        // Merge dialog state
+        // Merge modal state
         private bool showMergeDialog;
         private string mergeTaskName = "";
         private string mergeError = "";
+        #endregion
 
         [Inject]
         private IJSRuntime JSRuntime { get; set; } = default!;
 
         protected override async Task OnInitializedAsync()
         {
-            // Sample default row with valid HH:mm format
+            // Add a default row if none exist
             if (!timetable.Any())
             {
                 timetable.Add(new TimetableEntry
@@ -38,7 +51,6 @@ namespace BlazorWASM2.Pages
                     StartTime = "05:45:00",
                     EndTime = "06:25:00",
                     Task = "Wake up & freshen up",
-                    IsEditing = false,
                     IsSelected = false
                 });
             }
@@ -51,72 +63,94 @@ namespace BlazorWASM2.Pages
 
         protected void ToggleSelection(TimetableEntry entry)
         {
-            if (!entry.IsEditing)
-            {
-                entry.IsSelected = !entry.IsSelected;
-            }
+            entry.IsSelected = !entry.IsSelected;
         }
 
-        protected void Edit(TimetableEntry entry)
+        #region Edit Modal Methods
+        protected void OpenEditDialog(TimetableEntry entry, bool isNewRow)
         {
-            entry.EditingBackup = new TimetableEntry
-            {
-                StartTime = entry.StartTime,
-                EndTime = entry.EndTime,
-                Task = entry.Task
-            };
-            entry.IsEditing = true;
+            if (showEditDialog)
+                return;
+
+            rowToEdit = entry;
+            isNewRowEdit = isNewRow;
+            editStartTime = entry.StartTime;
+            editEndTime = entry.EndTime;
+            editTaskName = entry.Task;
+            editError = "";
+            showEditDialog = true;
         }
 
-        protected void Save(TimetableEntry entry)
+        protected void ConfirmEditDialog()
         {
-            entry.IsEditing = false;
-            entry.EditingBackup = null;
-
-            int idx = timetable.IndexOf(entry);
-            if (idx < timetable.Count - 1)
+            if (string.IsNullOrWhiteSpace(editStartTime) || string.IsNullOrWhiteSpace(editEndTime))
             {
-                timetable[idx + 1].StartTime = entry.EndTime;
+                editError = "Start Time and End Time are required.";
+                return;
             }
+            if (!TimeSpan.TryParse(editStartTime, out var startTs) || !TimeSpan.TryParse(editEndTime, out var endTs))
+            {
+                editError = "Invalid time format.";
+                return;
+            }
+            if (startTs >= endTs)
+            {
+                editError = "Start Time must be before End Time.";
+                return;
+            }
+
+            if (rowToEdit != null)
+            {
+                rowToEdit.StartTime = editStartTime;
+                rowToEdit.EndTime = editEndTime;
+                rowToEdit.Task = editTaskName;
+
+                int idx = timetable.IndexOf(rowToEdit);
+                if (idx < timetable.Count - 1)
+                {
+                    timetable[idx + 1].StartTime = editEndTime;
+                }
+            }
+            showEditDialog = false;
+            rowToEdit = null;
         }
 
-        protected void Cancel(TimetableEntry entry)
+        protected void CancelEditDialog()
         {
-            if (entry.EditingBackup != null)
+            if (isNewRowEdit && rowToEdit != null)
             {
-                entry.StartTime = entry.EditingBackup.StartTime;
-                entry.EndTime = entry.EditingBackup.EndTime;
-                entry.Task = entry.EditingBackup.Task;
+                timetable.Remove(rowToEdit);
             }
-            entry.IsEditing = false;
-            entry.EditingBackup = null;
+            showEditDialog = false;
+            rowToEdit = null;
         }
+        #endregion
 
         protected void AddNewRow()
         {
-            // For a new row, the StartTime defaults to the previous row's EndTime
+            // Prevent adding a new row while editing
+            if (showEditDialog)
+                return;
+
             string newStartTime = "";
             if (timetable.Count > 0)
             {
-                var lastEntry = timetable[timetable.Count - 1];
-                newStartTime = lastEntry.EndTime;
+                newStartTime = timetable[timetable.Count - 1].EndTime;
             }
-
             var newEntry = new TimetableEntry
             {
                 StartTime = newStartTime,
                 EndTime = "",
                 Task = "",
-                IsEditing = true,
                 IsSelected = false
             };
             timetable.Add(newEntry);
+            OpenEditDialog(newEntry, isNewRow: true);
         }
 
-        // Open the merge dialog instead of merging immediately.
+        #region Merge Modal Methods
         protected void OpenMergeDialog()
         {
-            // Ensure at least two selected rows
             if (timetable.Count(x => x.IsSelected) < 2)
                 return;
 
@@ -153,7 +187,6 @@ namespace BlazorWASM2.Pages
             }
 
             selectedIndices.Sort();
-            // Must be contiguous
             if (selectedIndices.Last() - selectedIndices.First() != selectedIndices.Count - 1)
             {
                 mergeError = "Selected rows must be contiguous.";
@@ -168,7 +201,6 @@ namespace BlazorWASM2.Pages
                 StartTime = timetable[firstIndex].StartTime,
                 EndTime = timetable[lastIndex].EndTime,
                 Task = mergeTaskName,
-                IsEditing = false,
                 IsSelected = false
             };
 
@@ -180,13 +212,13 @@ namespace BlazorWASM2.Pages
                 timetable[firstIndex + 1].StartTime = mergedEntry.EndTime;
             }
 
-            // Reset
             showMergeDialog = false;
             mergeTaskName = "";
             mergeError = "";
         }
+        #endregion
 
-        // Split row dialog
+        #region Split Modal Methods
         protected void OpenSplitDialog(TimetableEntry entry)
         {
             rowToSplit = entry;
@@ -203,12 +235,6 @@ namespace BlazorWASM2.Pages
             splitError = "";
         }
 
-        // Handle <input type="time" ...> for splitting
-        private void OnSplitTimeChanged(ChangeEventArgs e)
-        {
-            splitTime = e.Value?.ToString() ?? "";
-        }
-
         protected void ConfirmSplitTime()
         {
             if (rowToSplit == null)
@@ -223,7 +249,6 @@ namespace BlazorWASM2.Pages
                 return;
             }
 
-            // Validate the row's StartTime and EndTime
             if (!TimeSpan.TryParse(rowToSplit.StartTime, out var startTs) ||
                 !TimeSpan.TryParse(rowToSplit.EndTime, out var endTs))
             {
@@ -231,7 +256,6 @@ namespace BlazorWASM2.Pages
                 return;
             }
 
-            // Validate the user's time
             if (!TimeSpan.TryParse(splitTime, out var userTs))
             {
                 splitError = "Invalid time format. Use HH:mm (e.g. 06:45).";
@@ -256,7 +280,6 @@ namespace BlazorWASM2.Pages
                 StartTime = rowToSplit.StartTime,
                 EndTime = splitTime,
                 Task = rowToSplit.Task,
-                IsEditing = false,
                 IsSelected = false
             };
 
@@ -265,7 +288,6 @@ namespace BlazorWASM2.Pages
                 StartTime = splitTime,
                 EndTime = rowToSplit.EndTime,
                 Task = rowToSplit.Task,
-                IsEditing = false,
                 IsSelected = false
             };
 
@@ -283,6 +305,7 @@ namespace BlazorWASM2.Pages
             splitTime = "";
             splitError = "";
         }
+        #endregion
 
         protected async Task ExportTimetableAsync()
         {
@@ -336,14 +359,21 @@ namespace BlazorWASM2.Pages
             timetable.RemoveAt(idx);
         }
 
+        public string FormatTime(string time)
+        {
+            if (string.IsNullOrEmpty(time))
+                return "";
+            return time.Substring(0, Math.Min(time.Length, 5));
+        }
+
+        bool ShowActionsColumn => timetable.Any(x => x.IsSelected);
+
         public class TimetableEntry
         {
             public string StartTime { get; set; } = "";
             public string EndTime { get; set; } = "";
             public string Task { get; set; } = "";
-            public bool IsEditing { get; set; }
             public bool IsSelected { get; set; }
-            public TimetableEntry? EditingBackup { get; set; }
         }
     }
 }

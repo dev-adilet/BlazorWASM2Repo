@@ -1,0 +1,30 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+
+<div class="edit-modal" style="display:@(Visible ? "block" : "none")">
+    <div class="modal-backdrop">
+        <div class="modal-container">
+            <h4>Edit Row</h4>
+            <p>Please enter your changes:</p>
+            <div class="mb-2">
+                <label>Start Time</label>
+                <InputText type="time" class="form-control" @bind-Value="StartTime" />
+            </div>
+            <div class="mb-2">
+                <label>End Time</label>
+                <InputText type="time" class="form-control" @bind-Value="EndTime" />
+            </div>
+            <div class="mb-2">
+                <label>Task Name</label>
+                <InputText type="text" class="form-control" @bind-Value="TaskName" />
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Error))
+            {
+                <div class="text-danger">@Error</div>
+            }
+            <div class="mt-2">
+                <button class="btn btn-success me-2" @onclick="OnSave">Save</button>
+                <button class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
